@@ -2,6 +2,8 @@
 
 This is a Model Context Protocol (MCP) server that allows executing JMeter tests through MCP-compatible clients.
 
+![Anthropic](./images/Anthropic-MCP.png)
+
 ## Features
 
 - Execute JMeter tests in both GUI and non-GUI modes
