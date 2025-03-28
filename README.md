@@ -3,6 +3,8 @@
 This is a Model Context Protocol (MCP) server that allows executing JMeter tests through MCP-compatible clients.
 
 ![Anthropic](./images/Anthropic-MCP.png)
+![Cursor](./images/Cursor.png)
+![Windsurf](./images/Windsurf.png)
 
 ## Features
 
@@ -29,7 +31,7 @@ python jmeter_server.py
 2. Connect to the server using an MCP-compatible client (e.g., Claude Desktop)
 
 3. Use the available tools:
-   - `execute_jmeter_test`: Execute a JMeter test in GUI mode
+   - `execute_jmeter_test`: Launches JMeter in GUI mode, but doesn't execute test as per the JMeter design
    - `execute_jmeter_test_non_gui`: Execute a JMeter test in non-GUI mode
 
 ## Example

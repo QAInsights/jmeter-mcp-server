@@ -48,31 +48,38 @@ async def run_jmeter(test_file: str, non_gui: bool = True) -> str:
 
         # Print the full command for debugging
         print(f"Executing command: {' '.join(cmd)}")
-        # Execute the command
-        result = subprocess.run(cmd, capture_output=True, text=True)
         
-        # Print output for debugging
-        print(f"\nCommand output:")
-        print(f"Return code: {result.returncode}")
-        print(f"Stdout: {result.stdout}")
-        print(f"Stderr: {result.stderr}")
+        if non_gui:
+            # For non-GUI mode, capture output
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            
+            # Print output for debugging
+            print(f"\nCommand output:")
+            print(f"Return code: {result.returncode}")
+            print(f"Stdout: {result.stdout}")
+            print(f"Stderr: {result.stderr}")
 
-        if result.returncode != 0:
-            return f"Error executing JMeter test:\n{result.stderr}"
-        
-        return result.stdout
+            if result.returncode != 0:
+                return f"Error executing JMeter test:\n{result.stderr}"
+            
+            return result.stdout
+        else:
+            # For GUI mode, start process without capturing output
+            subprocess.Popen(cmd)
+            return "JMeter GUI launched successfully"
 
     except Exception as e:
         return f"Unexpected error: {str(e)}"
 
 @mcp.tool()
-async def execute_jmeter_test(test_file: str) -> str:
+async def execute_jmeter_test(test_file: str, gui_mode: bool = False) -> str:
     """Execute a JMeter test.
 
     Args:
         test_file: Path to the JMeter test file (.jmx)
+        gui_mode: Whether to run in GUI mode (default: False)
     """
-    return await run_jmeter(test_file)
+    return await run_jmeter(test_file, non_gui=not gui_mode)  # Run in non-GUI mode by default
 
 @mcp.tool()
 async def execute_jmeter_test_non_gui(test_file: str) -> str:
