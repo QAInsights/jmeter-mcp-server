@@ -9,9 +9,6 @@ startCommand:
   commandFunction:
     # A function that produces the CLI command to start the MCP on stdio.
     |-
-    (config) => ({command: 'uv', args: [
-        "--directory",
-        "/path/to/jmeter-test-plan",
-        "run",
+    (config) => ({command: 'python', args: [
         "jmeter_server.py"
       ], env: {}})
