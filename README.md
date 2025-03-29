@@ -32,15 +32,15 @@ chmod +x /path/to/jmeter/bin/jmeter
 
 ## 🚀 Usage
 
-🔗 1. Connect to the server using an MCP-compatible client (e.g., Claude Desktop, Cursor, Windsurf)
+1. Connect to the server using an MCP-compatible client (e.g., Claude Desktop, Cursor, Windsurf)
 
-📝 2. Send a prompt to the server:
+2. Send a prompt to the server:
 
 ```
 Run JMeter test /path/to/test.jmx
 ```
 
-🔧 3. MCP compatible client will use the available tools:
+3. MCP compatible client will use the available tools:
    - 🖥️ `execute_jmeter_test`: Launches JMeter in GUI mode, but doesn't execute test as per the JMeter design
    - 🚀 `execute_jmeter_test_non_gui`: Execute a JMeter test in non-GUI mode (default mode for better performance)
 
