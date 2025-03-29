@@ -12,17 +12,17 @@ This is a Model Context Protocol (MCP) server that allows executing JMeter tests
 
 ## 📋 Features
 
-📊 Execute JMeter tests in non-GUI mode
-🖥️ Launch JMeter in GUI mode
-📝 Capture and return execution output
+- 📊 Execute JMeter tests in non-GUI mode
+- 🖥️ Launch JMeter in GUI mode
+- 📝 Capture and return execution output
 
 ## 🛠️ Installation
 
 ### Local Installation
 
-📦 1. Install [`uv`](https://github.com/astral-sh/uv):
+1. Install [`uv`](https://github.com/astral-sh/uv):
 
-💻 2. Ensure JMeter is installed on your system and accessible via the command line.
+2. Ensure JMeter is installed on your system and accessible via the command line.
 
 ⚠️ **Important**: Make sure JMeter is executable. You can do this by running:
 
