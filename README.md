@@ -30,7 +30,18 @@ This is a Model Context Protocol (MCP) server that allows executing JMeter tests
 chmod +x /path/to/jmeter/bin/jmeter
 ```
 
-## 🚀 Usage
+3. Configure the `.env` file, refer to the `.env.example` file for details.
+
+```bash
+# JMeter Configuration
+JMETER_HOME=/path/to/apache-jmeter-5.6.3
+JMETER_BIN=${JMETER_HOME}/bin/jmeter
+
+# Optional: JMeter Java options
+JMETER_JAVA_OPTS="-Xms1g -Xmx2g"
+```
+
+### 💻 MCP Usage
 
 1. Connect to the server using an MCP-compatible client (e.g., Claude Desktop, Cursor, Windsurf)
 
