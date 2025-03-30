@@ -57,7 +57,7 @@ Run JMeter test /path/to/test.jmx
 
 ## 🏗️ MCP Configuration
 
-1. Add the following configuration to your MCP client config:
+Add the following configuration to your MCP client config:
 
 ```json
 {
