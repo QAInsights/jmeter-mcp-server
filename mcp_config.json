@@ -1,0 +1,13 @@
+{
+    "mcpServers": {
+      "jmeter": {
+        "command": "/path/to/uv",
+        "args": [
+          "--directory",
+          "/path/to/jmeter-mcp-server",
+          "run",
+          "jmeter_server.py"
+        ]
+      }
+    }
+}

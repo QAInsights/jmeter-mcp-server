@@ -55,6 +55,26 @@ Run JMeter test /path/to/test.jmx
    - 🖥️ `execute_jmeter_test`: Launches JMeter in GUI mode, but doesn't execute test as per the JMeter design
    - 🚀 `execute_jmeter_test_non_gui`: Execute a JMeter test in non-GUI mode (default mode for better performance)
 
+## 🏗️ MCP Configuration
+
+1. Add the following configuration to your MCP client config:
+
+```json
+{
+    "mcpServers": {
+      "jmeter": {
+        "command": "/path/to/uv",
+        "args": [
+          "--directory",
+          "/path/to/jmeter-mcp-server",
+          "run",
+          "jmeter_server.py"
+        ]
+      }
+    }
+}
+```
+
 ## 🛑 Error Handling
 
 The server will:
