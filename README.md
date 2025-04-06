@@ -77,11 +77,9 @@ Add the following configuration to your MCP client config:
 
 ## ✨ Use case
 
-Remote Execution: Run JMeter tests on remote servers through MCP without direct access to those servers.
-
-Automated Test Execution: Trigger JMeter tests programmatically from other services/applications via MCP's API interface.
-
 LLM powered result analysis: Collect and analyze test results.
+
+Debugging: Execute tests in non-GUI mode for debugging.
 
 ## 🛑 Error Handling
 
