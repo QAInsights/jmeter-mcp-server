@@ -3,7 +3,15 @@ import subprocess
 from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 import os
+import logging
 from dotenv import load_dotenv
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -35,9 +43,9 @@ async def run_jmeter(test_file: str, non_gui: bool = True) -> str:
         jmeter_bin = os.getenv('JMETER_BIN', 'jmeter')
         java_opts = os.getenv('JMETER_JAVA_OPTS', '')
 
-        # Print the JMeter binary path and Java options
-        print(f"JMeter binary path: {jmeter_bin}")
-        print(f"Java options: {java_opts}")
+        # Log the JMeter binary path and Java options
+        logger.info(f"JMeter binary path: {jmeter_bin}")
+        logger.debug(f"Java options: {java_opts}")
 
         # Build command
         cmd = [str(Path(jmeter_bin).resolve())]
@@ -46,18 +54,18 @@ async def run_jmeter(test_file: str, non_gui: bool = True) -> str:
             cmd.extend(['-n'])
         cmd.extend(['-t', str(test_file_path)])
 
-        # Print the full command for debugging
-        print(f"Executing command: {' '.join(cmd)}")
+        # Log the full command for debugging
+        logger.debug(f"Executing command: {' '.join(cmd)}")
         
         if non_gui:
             # For non-GUI mode, capture output
             result = subprocess.run(cmd, capture_output=True, text=True)
             
-            # Print output for debugging
-            print(f"\nCommand output:")
-            print(f"Return code: {result.returncode}")
-            print(f"Stdout: {result.stdout}")
-            print(f"Stderr: {result.stderr}")
+            # Log output for debugging
+            logger.debug("Command output:")
+            logger.debug(f"Return code: {result.returncode}")
+            logger.debug(f"Stdout: {result.stdout}")
+            logger.debug(f"Stderr: {result.stderr}")
 
             if result.returncode != 0:
                 return f"Error executing JMeter test:\n{result.stderr}"
