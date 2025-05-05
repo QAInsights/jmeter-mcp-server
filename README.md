@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/qainsights-jmeter-mcp-server-badge.png)](https://mseep.ai/app/qainsights-jmeter-mcp-server)
+
 # 🚀 JMeter MCP Server
 
 This is a Model Context Protocol (MCP) server that allows executing JMeter tests through MCP-compatible clients.
