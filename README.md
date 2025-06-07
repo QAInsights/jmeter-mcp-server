@@ -15,6 +15,7 @@ This is a Model Context Protocol (MCP) server that allows executing JMeter tests
 - 📊 Execute JMeter tests in non-GUI mode
 - 🖥️ Launch JMeter in GUI mode
 - 📝 Capture and return execution output
+- 📊 Generate JMeter report dashboard
 
 ## 🛠️ Installation
 
