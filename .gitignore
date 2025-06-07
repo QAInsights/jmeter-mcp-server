@@ -176,3 +176,5 @@ cython_debug/
 .DS_Store
 
 .env
+*.jtl
+*.csv
