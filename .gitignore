@@ -178,3 +178,7 @@ cython_debug/
 .env
 *.jtl
 *.csv
+.kiro/
+*.zip
+*.chat
+.kiro/debug/chats/1.chat

@@ -1,0 +1,220 @@
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>JMeter Test Results Analysis</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                h1, h2, h3 { color: #333; }
+                table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f2f2f2; }
+                tr:nth-child(even) { background-color: #f9f9f9; }
+                .chart { margin: 20px 0; max-width: 100%; }
+                .section { margin-bottom: 30px; }
+                .severity-high { color: #d9534f; }
+                .severity-medium { color: #f0ad4e; }
+                .severity-low { color: #5bc0de; }
+            </style>
+        </head>
+        <body>
+            <h1>JMeter Test Results Analysis</h1>
+            
+            <div class="section">
+                <h2>Summary</h2>
+                <table>
+                    <tr><th>Metric</th><th>Value</th></tr>
+                    <tr><td>Total Samples</td><td>96</td></tr>
+                    <tr><td>Error Count</td><td>0</td></tr>
+                    <tr><td>Error Rate</td><td>0.00%</td></tr>
+                    <tr><td>Average Response Time</td><td>222.18 ms</td></tr>
+                    <tr><td>Median Response Time</td><td>209.00 ms</td></tr>
+                    <tr><td>90th Percentile</td><td>335.50 ms</td></tr>
+                    <tr><td>95th Percentile</td><td>345.25 ms</td></tr>
+                    <tr><td>99th Percentile</td><td>356.00 ms</td></tr>
+                    <tr><td>Min Response Time</td><td>105.00 ms</td></tr>
+                    <tr><td>Max Response Time</td><td>356.00 ms</td></tr>
+                    <tr><td>Throughput</td><td>0.01 requests/second</td></tr>
+                    <tr><td>Start Time</td><td>2025-04-09 20:38:16.160000</td></tr>
+                    <tr><td>End Time</td><td>2025-04-09 23:17:02.381000</td></tr>
+                    <tr><td>Duration</td><td>9526.22 seconds</td></tr>
+                </table>
+            </div>
+        
+                <div class="section">
+                    <h2>Endpoint Analysis</h2>
+                    <table>
+                        <tr>
+                            <th>Endpoint</th>
+                            <th>Samples</th>
+                            <th>Errors</th>
+                            <th>Error Rate</th>
+                            <th>Avg Response Time</th>
+                            <th>95th Percentile</th>
+                            <th>Throughput</th>
+                        </tr>
+                
+                        <tr>
+                            <td>Login as u1</td>
+                            <td>8</td>
+                            <td>0</td>
+                            <td>0.00%</td>
+                            <td>174.62 ms</td>
+                            <td>271.10 ms</td>
+                            <td>0.00 req/s</td>
+                        </tr>
+                    
+                        <tr>
+                            <td>Action = none</td>
+                            <td>16</td>
+                            <td>0</td>
+                            <td>0.00%</td>
+                            <td>253.12 ms</td>
+                            <td>350.25 ms</td>
+                            <td>0.00 req/s</td>
+                        </tr>
+                    
+                        <tr>
+                            <td>Action a</td>
+                            <td>8</td>
+                            <td>0</td>
+                            <td>0.00%</td>
+                            <td>235.25 ms</td>
+                            <td>327.15 ms</td>
+                            <td>0.00 req/s</td>
+                        </tr>
+                    
+                        <tr>
+                            <td>Action b</td>
+                            <td>8</td>
+                            <td>0</td>
+                            <td>0.00%</td>
+                            <td>224.00 ms</td>
+                            <td>317.00 ms</td>
+                            <td>0.00 req/s</td>
+                        </tr>
+                    
+                        <tr>
+                            <td>Action c</td>
+                            <td>8</td>
+                            <td>0</td>
+                            <td>0.00%</td>
+                            <td>231.00 ms</td>
+                            <td>349.35 ms</td>
+                            <td>0.00 req/s</td>
+                        </tr>
+                    
+                        <tr>
+                            <td>Action d</td>
+                            <td>8</td>
+                            <td>0</td>
+                            <td>0.00%</td>
+                            <td>215.50 ms</td>
+                            <td>270.65 ms</td>
+                            <td>0.00 req/s</td>
+                        </tr>
+                    
+                        <tr>
+                            <td>Logout</td>
+                            <td>16</td>
+                            <td>0</td>
+                            <td>0.00%</td>
+                            <td>214.56 ms</td>
+                            <td>356.00 ms</td>
+                            <td>0.00 req/s</td>
+                        </tr>
+                    
+                        <tr>
+                            <td>Action = <EOF></td>
+                            <td>16</td>
+                            <td>0</td>
+                            <td>0.00%</td>
+                            <td>224.12 ms</td>
+                            <td>341.00 ms</td>
+                            <td>0.00 req/s</td>
+                        </tr>
+                    
+                        <tr>
+                            <td>Login as u2</td>
+                            <td>8</td>
+                            <td>0</td>
+                            <td>0.00%</td>
+                            <td>202.12 ms</td>
+                            <td>297.30 ms</td>
+                            <td>0.00 req/s</td>
+                        </tr>
+                    
+                    </table>
+                </div>
+                
+                <div class="section">
+                    <h2>Bottleneck Analysis</h2>
+                
+                    <h3>Slow Endpoints</h3>
+                    <table>
+                        <tr>
+                            <th>Endpoint</th>
+                            <th>Response Time</th>
+                            <th>Threshold</th>
+                            <th>Severity</th>
+                        </tr>
+                    
+                            <tr>
+                                <td>Logout</td>
+                                <td>356.00 ms</td>
+                                <td>329.05 ms</td>
+                                <td class="severity-low">LOW</td>
+                            </tr>
+                        
+                            <tr>
+                                <td>Action = none</td>
+                                <td>350.25 ms</td>
+                                <td>329.05 ms</td>
+                                <td class="severity-low">LOW</td>
+                            </tr>
+                        
+                            <tr>
+                                <td>Action c</td>
+                                <td>349.35 ms</td>
+                                <td>329.05 ms</td>
+                                <td class="severity-low">LOW</td>
+                            </tr>
+                        
+                            <tr>
+                                <td>Action = <EOF></td>
+                                <td>341.00 ms</td>
+                                <td>329.05 ms</td>
+                                <td class="severity-low">LOW</td>
+                            </tr>
+                        
+                    </table>
+                    
+                </div>
+                
+                <div class="section">
+                    <h2>Insights and Recommendations</h2>
+                
+                    <h3>Scaling Insights</h3>
+                    <table>
+                        <tr>
+                            <th>Topic</th>
+                            <th>Description</th>
+                        </tr>
+                    
+                            <tr>
+                                <td>No Correlation with Concurrency</td>
+                                <td>There is little to no correlation between the number of concurrent users and response times, suggesting good scalability</td>
+                            </tr>
+                        
+                            <tr>
+                                <td>No Performance Degradation Detected</td>
+                                <td>No significant performance degradation was detected with increasing concurrent users within the tested range</td>
+                            </tr>
+                        
+                    </table>
+                    
+                </div>
+                
+        </body>
+        </html>
+        
