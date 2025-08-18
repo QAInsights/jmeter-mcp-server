@@ -1,4 +1,5 @@
 # 🚀 JMeter MCP Server
+[![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/QAInsights/jmeter-mcp-server)](https://archestra.ai/mcp-catalog/qainsights__jmeter-mcp-server)
 
 This is a Model Context Protocol (MCP) server that allows executing JMeter tests through MCP-compatible clients and analyzing test results.
 
