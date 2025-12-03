@@ -1,13 +1,15 @@
 {
-    "mcpServers": {
-      "jmeter": {
-        "command": "/path/to/uv",
-        "args": [
-          "--directory",
-          "/path/to/jmeter-mcp-server",
-          "run",
-          "jmeter_server.py"
-        ]
+  "mcpServers": {
+    "jmeter": {
+      "command": "/usr/bin/python3",
+      "args": [
+        "/home/ebad/.gemini/antigravity/scratch/jmeter-mcp-server/jmeter_server.py"
+      ],
+      "env": {
+        "JMETER_HOME": "/home/ebad/.gemini/antigravity/scratch/jmeter-mcp-server/tools/apache-jmeter-5.6.3",
+        "JMETER_BIN": "/home/ebad/.gemini/antigravity/scratch/jmeter-mcp-server/tools/apache-jmeter-5.6.3/bin/jmeter",
+        "JMETER_JAVA_OPTS": "-Xms1g -Xmx2g"
       }
     }
+  }
 }

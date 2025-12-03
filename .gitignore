@@ -182,3 +182,4 @@ cython_debug/
 *.zip
 *.chat
 .kiro/debug/chats/1.chat
+tools/
