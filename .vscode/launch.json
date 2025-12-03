@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "JMeter MCP Server",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/jmeter_server.py",
+            "console": "integratedTerminal",
+            "env": {
+                "JMETER_HOME": "${workspaceFolder}/tools/apache-jmeter-5.6.3",
+                "JMETER_BIN": "${workspaceFolder}/tools/apache-jmeter-5.6.3/bin/jmeter",
+                "JMETER_JAVA_OPTS": "-Xms1g -Xmx2g"
+            }
+        }
+    ]
+}
