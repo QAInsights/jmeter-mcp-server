@@ -173,3 +173,8 @@ What recommendations do you have for improving performance based on results.jtl?
 # Generate visualizations
 Create a time series graph of response times from results.jtl
 ```
+
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/qainsights-jmeter-mcp-server).
+
