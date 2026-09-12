@@ -10,7 +10,7 @@ import uuid
 import logging
 from dotenv import load_dotenv
 
-from analyzer.models import TestResults, TimeSeriesMetrics, EndpointMetrics
+from analyzer.models import TimeSeriesMetrics, EndpointMetrics
 from analyzer.analyzer import TestResultsAnalyzer
 from analyzer.visualization.engine import VisualizationEngine
 

@@ -1,7 +1,6 @@
 import sys
 import types
 import os
-os.environ.setdefault('MPLBACKEND', 'Agg')
 import asyncio
 import contextlib
 import io
