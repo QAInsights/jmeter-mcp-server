@@ -7,13 +7,16 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 import os
 import datetime
-import uuid
 import logging
 from dotenv import load_dotenv
 
 from analyzer.models import TimeSeriesMetrics, EndpointMetrics
 from analyzer.analyzer import TestResultsAnalyzer
 from analyzer.visualization.engine import VisualizationEngine
+from runs.util import (build_jmeter_command, kill_process_tree,
+                       truncate_output)
+from runs.manager import get_run_manager
+from runs.live_metrics import read_live_metrics
 
 # Configure logging (stderr only; stdout is reserved for the MCP stdio channel)
 logging.basicConfig(
@@ -31,6 +34,9 @@ mcp = FastMCP("jmeter")
 
 DEFAULT_TIMEOUT_SECONDS = 3600
 DEFAULT_OUTPUT_MAX_LINES = 200
+
+# Re-export for backward compatibility (lives in runs.util now)
+_truncate_output = truncate_output
 
 
 def _get_timeout_seconds() -> Optional[float]:
@@ -52,34 +58,11 @@ def _get_timeout_seconds() -> Optional[float]:
     return value
 
 
-def _truncate_output(text: str, max_lines: Optional[int] = None) -> str:
-    """Truncate text to the last max_lines lines, noting how many were omitted."""
-    if not text:
-        return ""
-    if max_lines is None:
-        raw = os.getenv('JMETER_OUTPUT_MAX_LINES')
-        try:
-            max_lines = int(raw) if raw is not None else DEFAULT_OUTPUT_MAX_LINES
-        except ValueError:
-            max_lines = DEFAULT_OUTPUT_MAX_LINES
-    lines = text.splitlines()
-    if len(lines) <= max_lines:
-        return text
-    omitted = len(lines) - max_lines
-    return f"[... {omitted} earlier lines omitted; see jmeter.log for full output ...]\n" + "\n".join(lines[-max_lines:])
-
-
 def _kill_process_tree(proc) -> None:
     """Kill a subprocess and its whole process group (the jmeter launcher
     shell script only forwards signals inconsistently, so killing the
     wrapper alone leaves the Java child running)."""
-    try:
-        if os.name == 'posix':
-            os.killpg(proc.pid, signal.SIGKILL)
-        else:
-            proc.kill()
-    except ProcessLookupError:
-        pass
+    kill_process_tree(proc.pid, signal.SIGKILL)
 
 
 async def run_jmeter(test_file: str, non_gui: bool = True, properties: dict = None, generate_report: bool = False, report_output_dir: str = None, log_file: str = None) -> str:
@@ -115,46 +98,10 @@ async def run_jmeter(test_file: str, non_gui: bool = True, properties: dict = No
         logger.debug(f"Java options: {java_opts}")
 
         # Build command
-        cmd = [str(Path(jmeter_bin).resolve())]
-        
-        if non_gui:
-            cmd.extend(['-n'])
-        cmd.extend(['-t', str(test_file_path)])
-        
-        # Add JMeter properties if provided∑
-        if properties:
-            for prop_name, prop_value in properties.items():
-                cmd.extend([f'-J{prop_name}={prop_value}'])
-                logger.debug(f"Adding property: -J{prop_name}={prop_value}")
-        
-        # In non-GUI mode, always honor an explicit log file; when a report
-        # is requested without one, generate a unique name
-        if non_gui and log_file is None and generate_report:
-            unique_id = generate_unique_id()
-            log_file = f"{test_file_path.stem}_{unique_id}_results.jtl"
-            logger.debug(f"Using generated unique log file: {log_file}")
-
-        if non_gui and log_file:
-            cmd.extend(['-l', log_file])
-
-        # Add report generation options if requested
-        if generate_report and non_gui:
-            cmd.extend(['-e'])
-            
-            # Always ensure report_output_dir is unique
-            unique_id = unique_id if 'unique_id' in locals() else generate_unique_id()
-            
-            if report_output_dir:
-                # Append unique identifier to user-provided report directory
-                original_dir = report_output_dir
-                report_output_dir = f"{original_dir}_{unique_id}"
-                logger.debug(f"Making user-provided report directory unique: {original_dir} -> {report_output_dir}")
-            else:
-                # Generate unique report output directory if not specified
-                report_output_dir = f"{test_file_path.stem}_{unique_id}_report"
-                logger.debug(f"Using generated unique report output directory: {report_output_dir}")
-                
-            cmd.extend(['-o', report_output_dir])
+        cmd, log_file, report_output_dir = build_jmeter_command(
+            test_file_path, jmeter_bin, non_gui=non_gui, properties=properties,
+            generate_report=generate_report, report_output_dir=report_output_dir,
+            log_file=log_file)
 
         # Log the full command for debugging
         logger.debug(f"Executing command: {' '.join(cmd)}")
@@ -653,16 +600,145 @@ async def generate_visualization(jtl_file: str, visualization_type: str, output_
     except Exception as e:
         return f"Error generating visualization: {str(e)}"
 
-def generate_unique_id():
+@mcp.tool()
+async def start_jmeter_test(test_file: str, properties: dict = None, generate_report: bool = False, report_output_dir: str = None, log_file: str = None) -> str:
+    """Start a JMeter test in the background and return a run id for polling.
+
+    Args:
+        test_file: Path to the JMeter test file (.jmx)
+        properties: Dictionary of JMeter properties to pass with -J (default: None)
+        generate_report: Whether to generate report dashboard after load test (default: False)
+        report_output_dir: Output folder for report dashboard (default: None)
+        log_file: Path of JTL file to log sample results to (default: <run_dir>/results.jtl)
     """
-    Generate a unique identifier using timestamp and UUID.
-    
-    Returns:
-        str: A unique identifier string
+    try:
+        record = await get_run_manager().start(
+            test_file, properties=properties, generate_report=generate_report,
+            report_output_dir=report_output_dir, log_file=log_file)
+        lines = [f"Started JMeter run {record.run_id}",
+                 f"- PID: {record.pid}",
+                 f"- JTL: {record.jtl_path}"]
+        if record.report_dir:
+            lines.append(f"- Report dir: {record.report_dir}")
+        lines.append(f"- stdout log: {record.stdout_path}")
+        lines.append(f"Use get_test_status('{record.run_id}') to poll.")
+        return "\n".join(lines)
+    except ValueError as e:
+        return str(e)
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+
+@mcp.tool()
+async def get_test_status(run_id: str) -> str:
+    """Get the status and live metrics of a background JMeter run.
+
+    Args:
+        run_id: Run identifier returned by start_jmeter_test
     """
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    random_id = str(uuid.uuid4())[:8]  # Use first 8 chars of UUID for brevity
-    return f"{timestamp}_{random_id}"
+    try:
+        manager = get_run_manager()
+        record = manager.status(run_id)
+        if record is None:
+            return "Error: Unknown run id"
+
+        start = datetime.datetime.fromisoformat(record.start_time)
+        end = (datetime.datetime.fromisoformat(record.end_time)
+               if record.end_time else datetime.datetime.now())
+        elapsed = (end - start).total_seconds()
+
+        lines = [f"Run {record.run_id}",
+                 f"- Status: {record.status}",
+                 f"- Elapsed: {elapsed:.1f} seconds",
+                 f"- PID: {record.pid}",
+                 f"- Exit code: {record.exit_code}",
+                 f"- Test file: {record.test_file}",
+                 f"- JTL: {record.jtl_path}",
+                 f"- stdout log: {record.stdout_path}",
+                 f"- stderr log: {record.stderr_path}"]
+        if record.report_dir:
+            lines.append(f"- Report dir: {record.report_dir}")
+        if record.error:
+            lines.append(f"- Error: {record.error}")
+
+        if record.jtl_path and Path(record.jtl_path).exists():
+            metrics = read_live_metrics(record.jtl_path)
+            if metrics.get("supported"):
+                lines.append("Live metrics:")
+                lines.append(f"- Total samples so far: {metrics['total_samples']}")
+                lines.append(f"- Recent window: {metrics['recent_samples']} samples, "
+                             f"{metrics['recent_error_rate_pct']:.1f}% errors")
+                lines.append(f"- Recent avg response: {metrics['recent_avg_response_ms']:.1f} ms")
+                lines.append(f"- Recent p95 response: {metrics['recent_p95_response_ms']:.1f} ms")
+                if metrics.get('active_threads') is not None:
+                    lines.append(f"- Active threads (last sample): {metrics['active_threads']}")
+                if metrics.get('last_sample_time'):
+                    lines.append(f"- Last sample time: {metrics['last_sample_time']}")
+            else:
+                lines.append(f"Live metrics unavailable: {metrics.get('reason')}")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+
+@mcp.tool()
+async def stop_jmeter_test(run_id: str, graceful: bool = True, timeout_seconds: float = 30.0) -> str:
+    """Stop a background JMeter run.
+
+    Args:
+        run_id: Run identifier returned by start_jmeter_test
+        graceful: Use JMeter's shutdown listener first, escalating to signals (default: True)
+        timeout_seconds: Seconds to wait for graceful shutdown before escalating (default: 30)
+    """
+    try:
+        manager = get_run_manager()
+        record = manager.status(run_id)
+        if record is None:
+            return "Error: Unknown run id"
+        if record.status not in ("starting", "running"):
+            return f"Run {run_id} is not running (status: {record.status})"
+        record = await manager.stop(run_id, graceful=graceful, timeout_seconds=timeout_seconds)
+        return f"Run {run_id} stopped (status: {record.status}, exit code: {record.exit_code})"
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+
+@mcp.tool()
+async def get_test_output(run_id: str, tail_lines: int = 100) -> str:
+    """Get the tail of a run's stdout/stderr logs.
+
+    Args:
+        run_id: Run identifier returned by start_jmeter_test
+        tail_lines: Number of lines to return per stream (default: 100)
+    """
+    try:
+        manager = get_run_manager()
+        if manager.status(run_id) is None:
+            return "Error: Unknown run id"
+        out = manager.output(run_id, tail_lines=tail_lines)
+        return f"stdout (last {tail_lines} lines):\n{out['stdout']}\n\nstderr (last {tail_lines} lines):\n{out['stderr']}"
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+
+@mcp.tool()
+async def list_test_runs(limit: int = 20) -> str:
+    """List recent JMeter runs.
+
+    Args:
+        limit: Maximum number of runs to return, newest first (default: 20)
+    """
+    try:
+        records = get_run_manager().list(limit=limit)
+        if not records:
+            return "No runs found."
+        lines = []
+        for record in records:
+            lines.append(f"{record.run_id} | {record.status} | {record.start_time} | "
+                         f"{Path(record.test_file).name}")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 
 if __name__ == "__main__":
