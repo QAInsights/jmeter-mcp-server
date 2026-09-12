@@ -3,8 +3,10 @@ name = "jmeter-mcp-server"
 version = "0.1.0"
 description = "JMeter MCP Server"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 dependencies = [
-    "httpx>=0.28.1",
-    "mcp[cli]>=1.6.0",
+    "mcp[cli]>=1.6.0,<2",
+    "python-dotenv>=1.0.0",
+    "numpy>=1.24",
+    "matplotlib>=3.7",
 ]

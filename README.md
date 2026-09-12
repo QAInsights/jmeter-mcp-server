@@ -43,7 +43,7 @@ chmod +x /path/to/jmeter/bin/jmeter
 3. Install required Python dependencies:
 
 ```bash
-pip install numpy matplotlib
+pip install -r requirements.txt
 ```
 
 4. Configure the `.env` file, refer to the `.env.example` file for details.

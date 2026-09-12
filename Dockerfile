@@ -24,7 +24,6 @@ COPY . .
 
 # Install Python dependencies
 RUN pip install --upgrade pip && \
-    pip install "mcp[cli]<1.6.0" && \
     pip install --no-cache-dir -r requirements.txt
 
 # Expose port (adjust if your server uses a different port)

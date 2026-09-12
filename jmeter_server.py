@@ -1,18 +1,24 @@
-from typing import Any
+from typing import Optional
+import asyncio
 import subprocess
+import sys
 from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 import os
 import datetime
 import uuid
 import logging
-import logging
 from dotenv import load_dotenv
 
-# Configure logging
+from analyzer.models import TestResults, TimeSeriesMetrics, EndpointMetrics
+from analyzer.analyzer import TestResultsAnalyzer
+from analyzer.visualization.engine import VisualizationEngine
+
+# Configure logging (stderr only; stdout is reserved for the MCP stdio channel)
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    stream=sys.stderr
 )
 logger = logging.getLogger(__name__)
 
@@ -21,6 +27,46 @@ load_dotenv()
 
 # Initialize MCP server
 mcp = FastMCP("jmeter")
+
+DEFAULT_TIMEOUT_SECONDS = 3600
+DEFAULT_OUTPUT_MAX_LINES = 200
+
+
+def _get_timeout_seconds() -> Optional[float]:
+    """Return the JMeter run timeout in seconds.
+
+    Reads JMETER_TIMEOUT_SECONDS (default 3600). A value <= 0 means no
+    timeout (returns None); an invalid value logs a warning and uses the default.
+    """
+    raw = os.getenv('JMETER_TIMEOUT_SECONDS')
+    if raw is None:
+        return float(DEFAULT_TIMEOUT_SECONDS)
+    try:
+        value = float(raw)
+    except ValueError:
+        logger.warning(f"Invalid JMETER_TIMEOUT_SECONDS value '{raw}'; using default {DEFAULT_TIMEOUT_SECONDS}")
+        return float(DEFAULT_TIMEOUT_SECONDS)
+    if value <= 0:
+        return None
+    return value
+
+
+def _truncate_output(text: str, max_lines: Optional[int] = None) -> str:
+    """Truncate text to the last max_lines lines, noting how many were omitted."""
+    if not text:
+        return ""
+    if max_lines is None:
+        raw = os.getenv('JMETER_OUTPUT_MAX_LINES')
+        try:
+            max_lines = int(raw) if raw is not None else DEFAULT_OUTPUT_MAX_LINES
+        except ValueError:
+            max_lines = DEFAULT_OUTPUT_MAX_LINES
+    lines = text.splitlines()
+    if len(lines) <= max_lines:
+        return text
+    omitted = len(lines) - max_lines
+    return f"[... {omitted} earlier lines omitted; see jmeter.log for full output ...]\n" + "\n".join(lines[-max_lines:])
+
 
 async def run_jmeter(test_file: str, non_gui: bool = True, properties: dict = None, generate_report: bool = False, report_output_dir: str = None, log_file: str = None) -> str:
     """Run a JMeter test.
@@ -51,7 +97,7 @@ async def run_jmeter(test_file: str, non_gui: bool = True, properties: dict = No
         java_opts = os.getenv('JMETER_JAVA_OPTS', '')
 
         # Log the JMeter binary path and Java options
-        logger.info(f"JMeter binary path: {jmeter_bin}")
+        logger.debug(f"JMeter binary path: {jmeter_bin}")
         logger.debug(f"Java options: {java_opts}")
 
         # Build command
@@ -97,19 +143,34 @@ async def run_jmeter(test_file: str, non_gui: bool = True, properties: dict = No
         logger.debug(f"Executing command: {' '.join(cmd)}")
         
         if non_gui:
-            # For non-GUI mode, capture output
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            
+            # For non-GUI mode, capture output asynchronously with a timeout
+            timeout = _get_timeout_seconds()
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            try:
+                stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.wait()
+                return (f"Error: JMeter test timed out after {timeout} seconds and was terminated. "
+                        f"Increase JMETER_TIMEOUT_SECONDS if the test legitimately needs longer.")
+
+            stdout = stdout_b.decode(errors="replace")
+            stderr = stderr_b.decode(errors="replace")
+
             # Log output for debugging
             logger.debug("Command output:")
-            logger.debug(f"Return code: {result.returncode}")
-            logger.debug(f"Stdout: {result.stdout}")
-            logger.debug(f"Stderr: {result.stderr}")
+            logger.debug(f"Return code: {proc.returncode}")
+            logger.debug(f"Stdout: {stdout}")
+            logger.debug(f"Stderr: {stderr}")
 
-            if result.returncode != 0:
-                return f"Error executing JMeter test:\n{result.stderr}"
-            
-            return result.stdout
+            if proc.returncode != 0:
+                return f"Error executing JMeter test (exit code {proc.returncode}):\n{_truncate_output(stderr or stdout)}"
+
+            return _truncate_output(stdout)
         else:
             # For GUI mode, start process without capturing output
             subprocess.Popen(cmd)
@@ -142,11 +203,6 @@ async def execute_jmeter_test_non_gui(test_file: str, properties: dict = None, g
     """
     return await run_jmeter(test_file, non_gui=True, properties=properties, generate_report=generate_report, report_output_dir=report_output_dir, log_file=log_file)
 
-# Import the analyzer module
-from analyzer.models import TestResults
-from analyzer.analyzer import TestResultsAnalyzer
-from analyzer.visualization.engine import VisualizationEngine
-
 @mcp.tool()
 async def analyze_jmeter_results(jtl_file: str, detailed: bool = False) -> str:
     """Analyze JMeter test results and provide a summary of key metrics and insights.
@@ -178,7 +234,7 @@ async def analyze_jmeter_results(jtl_file: str, detailed: bool = False) -> str:
             result_str += "Summary:\n"
             result_str += f"- Total samples: {summary.get('total_samples', 'N/A')}\n"
             result_str += f"- Error count: {summary.get('error_count', 'N/A')} ({summary.get('error_rate', 'N/A'):.2f}%)\n"
-            result_str += f"- Response times (ms):\n"
+            result_str += "- Response times (ms):\n"
             result_str += f"  - Average: {summary.get('average_response_time', 'N/A'):.2f}\n"
             result_str += f"  - Median: {summary.get('median_response_time', 'N/A'):.2f}\n"
             result_str += f"  - 90th percentile: {summary.get('percentile_90', 'N/A'):.2f}\n"
@@ -283,7 +339,7 @@ async def analyze_jmeter_results(jtl_file: str, detailed: bool = False) -> str:
                 if time_series:
                     result_str += "Time Series Analysis:\n"
                     result_str += f"- Intervals: {len(time_series)}\n"
-                    result_str += f"- Interval duration: 5 seconds\n"
+                    result_str += "- Interval duration: 5 seconds\n"
                     
                     # Calculate average throughput and response time over intervals
                     avg_throughput = sum(ts.get('throughput', 0) for ts in time_series) / len(time_series)
