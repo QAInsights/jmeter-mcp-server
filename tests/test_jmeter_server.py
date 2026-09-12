@@ -1,6 +1,8 @@
 import sys
 import types
 import os
+import signal
+import time
 import asyncio
 import contextlib
 import io
@@ -84,11 +86,43 @@ class TestRunJMeter(unittest.IsolatedAsyncioTestCase):
         proc = self._make_proc()
         mock_exec.return_value = proc
         mock_wait_for.side_effect = asyncio.TimeoutError
-        with mock.patch.dict(os.environ, {'JMETER_TIMEOUT_SECONDS': '5'}):
+        with mock.patch.dict(os.environ, {'JMETER_TIMEOUT_SECONDS': '5'}), \
+             mock.patch('jmeter_server.os.killpg') as mock_killpg:
             result = await jmeter_server.run_jmeter(test_file, non_gui=True)
         self.assertIn("timed out after 5.0 seconds", result)
-        proc.kill.assert_called_once()
+        _, kwargs = mock_exec.call_args
+        self.assertTrue(kwargs.get('start_new_session'))
+        if os.name == 'posix':
+            mock_killpg.assert_called_once_with(proc.pid, signal.SIGKILL)
+        else:
+            proc.kill.assert_called_once()
         proc.wait.assert_awaited_once()
+        os.unlink(test_file)
+
+    @mock.patch('jmeter_server.asyncio.create_subprocess_exec', new_callable=mock.AsyncMock)
+    async def test_non_gui_log_file_without_report(self, mock_exec):
+        with tempfile.NamedTemporaryFile(suffix=".jmx", delete=False) as tmp:
+            test_file = tmp.name
+        mock_exec.return_value = self._make_proc(stdout=b"done")
+        await jmeter_server.run_jmeter(test_file, non_gui=True, log_file="out.jtl")
+        cmd = list(mock_exec.call_args.args)
+        self.assertIn('-l', cmd)
+        self.assertEqual(cmd[cmd.index('-l') + 1], 'out.jtl')
+        self.assertNotIn('-e', cmd)
+        self.assertNotIn('-o', cmd)
+        os.unlink(test_file)
+
+    @mock.patch('jmeter_server.asyncio.create_subprocess_exec', new_callable=mock.AsyncMock)
+    async def test_non_gui_generate_report_generates_log_file(self, mock_exec):
+        with tempfile.NamedTemporaryFile(suffix=".jmx", delete=False) as tmp:
+            test_file = tmp.name
+        mock_exec.return_value = self._make_proc(stdout=b"done")
+        await jmeter_server.run_jmeter(test_file, non_gui=True, generate_report=True)
+        cmd = list(mock_exec.call_args.args)
+        self.assertIn('-l', cmd)
+        self.assertIn('-e', cmd)
+        self.assertIn('-o', cmd)
+        self.assertEqual(cmd.count('-l'), 1)
         os.unlink(test_file)
 
     @mock.patch('jmeter_server.subprocess.Popen')
@@ -121,6 +155,39 @@ class TestRunJMeter(unittest.IsolatedAsyncioTestCase):
         result = await jmeter_server.execute_jmeter_test_non_gui("file.jmx")
         mock_run_jmeter.assert_awaited_with("file.jmx", non_gui=True, properties=None, generate_report=False, report_output_dir=None, log_file=None)
         self.assertEqual(result, "non-gui output")
+
+
+@unittest.skipUnless(os.name == 'posix', 'process-group kill requires posix')
+class TestTimeoutKillsProcessTree(unittest.IsolatedAsyncioTestCase):
+    async def test_timeout_kills_child_process(self):
+        with tempfile.TemporaryDirectory() as d:
+            test_file = os.path.join(d, "test.jmx")
+            open(test_file, 'w').write("<jmeterTestPlan/>")
+            pid_file = os.path.join(d, "child.pid")
+            fake_jmeter = os.path.join(d, "jmeter")
+            with open(fake_jmeter, 'w') as f:
+                f.write(f"#!/bin/sh\nsleep 30 & child=$!; echo $child > {pid_file}; wait $child\n")
+            os.chmod(fake_jmeter, 0o755)
+
+            with mock.patch.dict(os.environ, {
+                'JMETER_BIN': fake_jmeter,
+                'JMETER_TIMEOUT_SECONDS': '1',
+            }):
+                result = await jmeter_server.run_jmeter(test_file, non_gui=True)
+
+            self.assertIn("timed out", result)
+            with open(pid_file) as f:
+                child_pid = int(f.read().strip())
+            # Poll up to 2s for the child to die
+            alive = True
+            for _ in range(20):
+                try:
+                    os.kill(child_pid, 0)
+                except ProcessLookupError:
+                    alive = False
+                    break
+                time.sleep(0.1)
+            self.assertFalse(alive, f"child process {child_pid} still alive after timeout")
 
 
 class TestUnexpectedError(unittest.IsolatedAsyncioTestCase):

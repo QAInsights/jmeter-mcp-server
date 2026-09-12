@@ -1,5 +1,6 @@
 from typing import Optional
 import asyncio
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -68,6 +69,19 @@ def _truncate_output(text: str, max_lines: Optional[int] = None) -> str:
     return f"[... {omitted} earlier lines omitted; see jmeter.log for full output ...]\n" + "\n".join(lines[-max_lines:])
 
 
+def _kill_process_tree(proc) -> None:
+    """Kill a subprocess and its whole process group (the jmeter launcher
+    shell script only forwards signals inconsistently, so killing the
+    wrapper alone leaves the Java child running)."""
+    try:
+        if os.name == 'posix':
+            os.killpg(proc.pid, signal.SIGKILL)
+        else:
+            proc.kill()
+    except ProcessLookupError:
+        pass
+
+
 async def run_jmeter(test_file: str, non_gui: bool = True, properties: dict = None, generate_report: bool = False, report_output_dir: str = None, log_file: str = None) -> str:
     """Run a JMeter test.
 
@@ -113,15 +127,18 @@ async def run_jmeter(test_file: str, non_gui: bool = True, properties: dict = No
                 cmd.extend([f'-J{prop_name}={prop_value}'])
                 logger.debug(f"Adding property: -J{prop_name}={prop_value}")
         
+        # In non-GUI mode, always honor an explicit log file; when a report
+        # is requested without one, generate a unique name
+        if non_gui and log_file is None and generate_report:
+            unique_id = generate_unique_id()
+            log_file = f"{test_file_path.stem}_{unique_id}_results.jtl"
+            logger.debug(f"Using generated unique log file: {log_file}")
+
+        if non_gui and log_file:
+            cmd.extend(['-l', log_file])
+
         # Add report generation options if requested
         if generate_report and non_gui:
-            if log_file is None:
-                # Generate unique log file name if not specified
-                unique_id = generate_unique_id()
-                log_file = f"{test_file_path.stem}_{unique_id}_results.jtl"
-                logger.debug(f"Using generated unique log file: {log_file}")
-            
-            cmd.extend(['-l', log_file])
             cmd.extend(['-e'])
             
             # Always ensure report_output_dir is unique
@@ -148,12 +165,13 @@ async def run_jmeter(test_file: str, non_gui: bool = True, properties: dict = No
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                stderr=asyncio.subprocess.PIPE,
+                start_new_session=True
             )
             try:
                 stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=timeout)
             except asyncio.TimeoutError:
-                proc.kill()
+                _kill_process_tree(proc)
                 await proc.wait()
                 return (f"Error: JMeter test timed out after {timeout} seconds and was terminated. "
                         f"Increase JMETER_TIMEOUT_SECONDS if the test legitimately needs longer.")
