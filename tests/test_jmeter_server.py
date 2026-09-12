@@ -293,3 +293,92 @@ class TestMainModule(unittest.TestCase):
             main.main()
         mock_run.assert_called_once_with(transport='stdio')
         self.assertEqual(buf.getvalue(), "")
+
+def _make_record(**kw):
+    from runs.registry import RunRecord
+    defaults = dict(
+        run_id="run123", test_file="/tmp/t.jmx", cmd=["jmeter"], pid=4242,
+        status="running", start_time="2023-01-01T00:00:00", end_time=None,
+        exit_code=None, run_dir="/tmp/run", stdout_path="/tmp/o.log",
+        stderr_path="/tmp/e.log", jtl_path="/tmp/r.jtl", report_dir=None,
+        shutdown_port=4445, properties={})
+    defaults.update(kw)
+    return RunRecord(**defaults)
+
+
+class TestAsyncRunTools(unittest.IsolatedAsyncioTestCase):
+    def _manager(self, **kw):
+        mgr = mock.MagicMock()
+        mgr.start = mock.AsyncMock(return_value=_make_record(report_dir="/tmp/rep"))
+        mgr.status = mock.MagicMock(return_value=_make_record())
+        mgr.stop = mock.AsyncMock(return_value=_make_record(status="stopped", exit_code=-15))
+        mgr.output = mock.MagicMock(return_value={"stdout": "out\n", "stderr": "err\n"})
+        mgr.list = mock.MagicMock(return_value=[_make_record()])
+        for k, v in kw.items():
+            setattr(mgr, k, v)
+        return mgr
+
+    async def test_start_jmeter_test(self):
+        mgr = self._manager()
+        with mock.patch('jmeter_server.get_run_manager', return_value=mgr):
+            result = await jmeter_server.start_jmeter_test("t.jmx")
+        self.assertIn("Started JMeter run run123", result)
+        self.assertIn("PID: 4242", result)
+        self.assertIn("Report dir: /tmp/rep", result)
+        self.assertIn("get_test_status('run123')", result)
+
+    async def test_start_jmeter_test_validation_error(self):
+        mgr = self._manager()
+        mgr.start = mock.AsyncMock(side_effect=ValueError("Error: Test file not found: x.jmx"))
+        with mock.patch('jmeter_server.get_run_manager', return_value=mgr):
+            result = await jmeter_server.start_jmeter_test("x.jmx")
+        self.assertEqual(result, "Error: Test file not found: x.jmx")
+
+    async def test_get_test_status(self):
+        with tempfile.TemporaryDirectory() as d:
+            jtl = os.path.join(d, "r.jtl")
+            with open(jtl, 'w') as f:
+                f.write("timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect\n")
+                f.write("1625097600000,100,EP,200,OK,T-1,text,true,,1,1,1,1,u,100,0,10\n")
+            mgr = self._manager()
+            mgr.status = mock.MagicMock(return_value=_make_record(jtl_path=jtl))
+            with mock.patch('jmeter_server.get_run_manager', return_value=mgr):
+                result = await jmeter_server.get_test_status("run123")
+        self.assertIn("Status: running", result)
+        self.assertIn("Live metrics:", result)
+        self.assertIn("Total samples so far: 1", result)
+
+    async def test_get_test_status_unknown(self):
+        mgr = self._manager()
+        mgr.status = mock.MagicMock(return_value=None)
+        with mock.patch('jmeter_server.get_run_manager', return_value=mgr):
+            result = await jmeter_server.get_test_status("nope")
+        self.assertEqual(result, "Error: Unknown run id")
+
+    async def test_stop_jmeter_test(self):
+        mgr = self._manager()
+        with mock.patch('jmeter_server.get_run_manager', return_value=mgr):
+            result = await jmeter_server.stop_jmeter_test("run123", graceful=True, timeout_seconds=5)
+        mgr.stop.assert_awaited_once()
+        self.assertIn("stopped", result)
+
+    async def test_stop_not_running(self):
+        mgr = self._manager()
+        mgr.status = mock.MagicMock(return_value=_make_record(status="completed"))
+        with mock.patch('jmeter_server.get_run_manager', return_value=mgr):
+            result = await jmeter_server.stop_jmeter_test("run123")
+        self.assertIn("not running", result)
+
+    async def test_get_test_output(self):
+        mgr = self._manager()
+        with mock.patch('jmeter_server.get_run_manager', return_value=mgr):
+            result = await jmeter_server.get_test_output("run123", tail_lines=50)
+        self.assertIn("out", result)
+        self.assertIn("err", result)
+
+    async def test_list_test_runs(self):
+        mgr = self._manager()
+        with mock.patch('jmeter_server.get_run_manager', return_value=mgr):
+            result = await jmeter_server.list_test_runs()
+        self.assertIn("run123", result)
+        self.assertIn("running", result)
