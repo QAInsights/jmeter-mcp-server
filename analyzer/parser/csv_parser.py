@@ -2,16 +2,19 @@
 CSV parser for JMeter test results.
 
 This module provides functionality for parsing JMeter test results
-from JTL files in CSV format using streaming for efficient processing.
+from JTL files in CSV format.
 """
 
 import csv
+import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, Iterator, Union
 
-from analyzer.models import Sample, TestResults
+from analyzer.models import Sample
 from analyzer.parser.base import JTLParser
+
+logger = logging.getLogger(__name__)
 
 
 class CSVJTLParser(JTLParser):
@@ -40,14 +43,14 @@ class CSVJTLParser(JTLParser):
         """
         self.column_mappings = column_mappings or self.DEFAULT_COLUMN_MAPPINGS
     
-    def parse_file(self, file_path: Union[str, Path]) -> TestResults:
-        """Parse a JTL file in CSV format.
+    def iter_samples(self, file_path: Union[str, Path]) -> Iterator[Sample]:
+        """Iterate over samples in a CSV JTL file, one row at a time.
         
         Args:
             file_path: Path to the JTL file
             
-        Returns:
-            TestResults object containing parsed data
+        Yields:
+            Sample objects, one per valid row
             
         Raises:
             FileNotFoundError: If the file does not exist
@@ -63,9 +66,6 @@ class CSVJTLParser(JTLParser):
         format_name = self.detect_format(path)
         if format_name != "csv":
             raise ValueError(f"Invalid file format. Expected CSV, got {format_name}")
-        
-        # Create test results object
-        test_results = TestResults()
         
         try:
             # Open and parse the CSV file
@@ -115,15 +115,14 @@ class CSVJTLParser(JTLParser):
                             connect_time=int(row.get(self.column_mappings['connect_time'], 0))
                         )
                         
-                        # Add sample to test results
-                        test_results.add_sample(sample)
+                        yield sample
                         
                     except (ValueError, KeyError) as e:
                         # Log error but continue processing
-                        print(f"Error parsing row: {e}")
+                        logger.warning(f"Error parsing row: {e}")
                         continue
         
+        except FileNotFoundError:
+            raise
         except Exception as e:
             raise ValueError(f"Error parsing CSV file: {e}")
-        
-        return test_results
