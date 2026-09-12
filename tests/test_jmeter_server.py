@@ -23,6 +23,14 @@ class FastMCP:
         return decorator
     def run(self, *args, **kwargs):
         pass
+    def resource(self, *args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+    def prompt(self, *args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
 fastmcp_mod.FastMCP = FastMCP
 sys.modules['mcp.server.fastmcp'] = fastmcp_mod
 # Stub dotenv.load_dotenv
@@ -382,3 +390,81 @@ class TestAsyncRunTools(unittest.IsolatedAsyncioTestCase):
             result = await jmeter_server.list_test_runs()
         self.assertIn("run123", result)
         self.assertIn("running", result)
+
+
+class TestJsonFormat(unittest.IsolatedAsyncioTestCase):
+    def _jtl(self, d):
+        p = os.path.join(d, "r.jtl")
+        header = "timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect"
+        with open(p, 'w') as f:
+            f.write(header + "\n")
+            for i in range(10):
+                f.write(f"{1625097600000 + i * 1000},{100 + i},EP{i % 2},200,OK,T-1,text,true,,1,1,1,1,u,100,0,10\n")
+        return p
+
+    async def test_analyze_jmeter_results_json(self):
+        import json as _json
+        with tempfile.TemporaryDirectory() as d:
+            jtl = self._jtl(d)
+            out = await jmeter_server.analyze_jmeter_results(jtl, detailed=True, format="json")
+            data = _json.loads(out)
+            self.assertTrue(data["ok"])
+            self.assertEqual(data["data"]["summary"]["total_samples"], 10)
+            self.assertEqual(data["data"]["file"], jtl)
+            # markdown default unchanged
+            md = await jmeter_server.analyze_jmeter_results(jtl)
+            self.assertIn("Summary:", md)
+
+    async def test_analyze_jmeter_results_json_error(self):
+        import json as _json
+        out = await jmeter_server.analyze_jmeter_results("/nope.jtl", format="json")
+        data = _json.loads(out)
+        self.assertFalse(data["ok"])
+        self.assertNotIn("Error: ", out)
+        out = await jmeter_server.analyze_jmeter_results("/nope.jtl", format="bogus")
+        self.assertTrue(out.startswith("Error: format must be 'json' or 'markdown'"))
+
+    async def test_identify_performance_bottlenecks_json(self):
+        import json as _json
+        with tempfile.TemporaryDirectory() as d:
+            jtl = self._jtl(d)
+            out = await jmeter_server.identify_performance_bottlenecks(jtl, format="json")
+            data = _json.loads(out)
+            self.assertTrue(data["ok"])
+            self.assertIn("bottlenecks", data["data"])
+            self.assertIn("summary", data["data"])
+
+    async def test_get_performance_insights_json(self):
+        import json as _json
+        with tempfile.TemporaryDirectory() as d:
+            jtl = self._jtl(d)
+            out = await jmeter_server.get_performance_insights(jtl, format="json")
+            data = _json.loads(out)
+            self.assertTrue(data["ok"])
+            self.assertIn("insights", data["data"])
+
+    async def test_run_tools_json(self):
+        import json as _json
+        mgr = mock.MagicMock()
+        rec = _make_record()
+        mgr.start = mock.AsyncMock(return_value=rec)
+        mgr.status = mock.MagicMock(return_value=rec)
+        mgr.stop = mock.AsyncMock(return_value=rec)
+        mgr.output = mock.MagicMock(return_value={"stdout": "o\n", "stderr": "e\n"})
+        mgr.list = mock.MagicMock(return_value=[rec])
+        with mock.patch('jmeter_server.get_run_manager', return_value=mgr):
+            for coro in (
+                jmeter_server.start_jmeter_test("t.jmx", format="json"),
+                jmeter_server.get_test_status("run123", format="json"),
+                jmeter_server.stop_jmeter_test("run123", format="json"),
+                jmeter_server.get_test_output("run123", format="json"),
+                jmeter_server.list_test_runs(format="json"),
+            ):
+                data = _json.loads(await coro)
+                self.assertTrue(data["ok"], coro)
+                self.assertIn("data", data)
+            mgr.status = mock.MagicMock(return_value=None)
+            data = _json.loads(await jmeter_server.get_test_status("x", format="json"))
+            self.assertFalse(data["ok"])
+            out = await jmeter_server.get_test_status("x", format="bogus")
+            self.assertTrue(out.startswith("Error: format must be 'json' or 'markdown'"))
