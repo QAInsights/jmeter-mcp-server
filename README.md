@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/qainsights-jmeter-mcp-server-badge.png)](https://mseep.ai/app/qainsights-jmeter-mcp-server)
+
 # 🚀 JMeter MCP Server
 [![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/QAInsights/jmeter-mcp-server)](https://archestra.ai/mcp-catalog/qainsights__jmeter-mcp-server)
 
