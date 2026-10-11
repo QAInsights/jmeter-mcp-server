@@ -216,6 +216,26 @@ class TestGetTimeoutSeconds(unittest.TestCase):
             self.assertEqual(jmeter_server._get_timeout_seconds(), 120.0)
 
 
+class TestOptionalToolArguments(unittest.TestCase):
+    """Arguments that default to None must also accept None, otherwise the
+    MCP tool schema advertises "default": null on a type that rejects null."""
+
+    def test_none_default_arguments_are_optional(self):
+        import inspect
+        import typing
+        tools = [
+            jmeter_server.execute_jmeter_test,
+            jmeter_server.execute_jmeter_test_non_gui,
+            jmeter_server.start_jmeter_test,
+        ]
+        for func in tools:
+            hints = typing.get_type_hints(func)
+            for name, param in inspect.signature(func).parameters.items():
+                if param.default is None:
+                    with self.subTest(tool=func.__name__, argument=name):
+                        self.assertIn(type(None), typing.get_args(hints[name]))
+
+
 class TestTruncateOutput(unittest.TestCase):
     def test_short_text_unchanged(self):
         self.assertEqual(jmeter_server._truncate_output("line1\nline2", max_lines=200), "line1\nline2")
