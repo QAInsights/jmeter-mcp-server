@@ -65,7 +65,7 @@ def _kill_process_tree(proc) -> None:
     kill_process_tree(proc.pid, signal.SIGKILL)
 
 
-async def run_jmeter(test_file: str, non_gui: bool = True, properties: dict = None, generate_report: bool = False, report_output_dir: str = None, log_file: str = None) -> str:
+async def run_jmeter(test_file: str, non_gui: bool = True, properties: Optional[dict] = None, generate_report: bool = False, report_output_dir: Optional[str] = None, log_file: Optional[str] = None) -> str:
     """Run a JMeter test.
 
     Args:
@@ -145,7 +145,7 @@ async def run_jmeter(test_file: str, non_gui: bool = True, properties: dict = No
         return f"Unexpected error: {str(e)}"
 
 @mcp.tool()
-async def execute_jmeter_test(test_file: str, gui_mode: bool = False, properties: dict = None) -> str:
+async def execute_jmeter_test(test_file: str, gui_mode: bool = False, properties: Optional[dict] = None) -> str:
     """Execute a JMeter test.
 
     Args:
@@ -156,7 +156,7 @@ async def execute_jmeter_test(test_file: str, gui_mode: bool = False, properties
     return await run_jmeter(test_file, non_gui=not gui_mode, properties=properties)  # Run in non-GUI mode by default
 
 @mcp.tool()
-async def execute_jmeter_test_non_gui(test_file: str, properties: dict = None, generate_report: bool = False, report_output_dir: str = None, log_file: str = None) -> str:
+async def execute_jmeter_test_non_gui(test_file: str, properties: Optional[dict] = None, generate_report: bool = False, report_output_dir: Optional[str] = None, log_file: Optional[str] = None) -> str:
     """Execute a JMeter test in non-GUI mode - supports JMeter properties.
 
     Args:
@@ -601,7 +601,7 @@ async def generate_visualization(jtl_file: str, visualization_type: str, output_
         return f"Error generating visualization: {str(e)}"
 
 @mcp.tool()
-async def start_jmeter_test(test_file: str, properties: dict = None, generate_report: bool = False, report_output_dir: str = None, log_file: str = None) -> str:
+async def start_jmeter_test(test_file: str, properties: Optional[dict] = None, generate_report: bool = False, report_output_dir: Optional[str] = None, log_file: Optional[str] = None) -> str:
     """Start a JMeter test in the background and return a run id for polling.
 
     Args:
